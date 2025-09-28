@@ -54,30 +54,41 @@ static void ADC1_Init_CH0(void){
     gpio.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOA, &gpio);
 
-    RCC_ADCCLKConfig(RCC_PCLK2_Div6);
+    RCC_ADCCLKConfig(RCC_PCLK2_Div6);//Cau hinh Clock cho ADC: Chia tan so Clock APB2 (PCLK2, thuong là 72MHz) cho 6.
+									// f_ADC: 72MHz / 6 = 12 MHz (Dam bao duoi gioi han 14MHz).
 
     ADC_InitTypeDef adc;
-    adc.ADC_Mode               = ADC_Mode_Independent;
-    adc.ADC_ScanConvMode       = DISABLE;
-    adc.ADC_ContinuousConvMode = DISABLE;          // đo t?ng l?n trong v?ng l?p
-    adc.ADC_ExternalTrigConv   = ADC_ExternalTrigConv_None;
-    adc.ADC_DataAlign          = ADC_DataAlign_Right;
-    adc.ADC_NbrOfChannel       = 1;
-    ADC_Init(ADC1, &adc);
+    adc.ADC_Mode               = ADC_Mode_Independent; // Che do hoat dong: ADC1 hoat dong doc lap (Khong ghep doi voi ADC khac).
+    adc.ADC_ScanConvMode       = DISABLE; // Che do Quet: Tat. Chi doc 1 kenh duy nhat (PA0).
+    adc.ADC_ContinuousConvMode = DISABLE;  // Che do Chuyen doi Lien tuc: Tat. ADC k tu dong bat dau chuyen doi moi ngay sau khi xong.        
+    adc.ADC_ExternalTrigConv   = ADC_ExternalTrigConv_None; // Kich hoat ben ngoai: KHONG su dung su kien Timer hay chan ngoai de bat dau chuyen doi.
+    adc.ADC_DataAlign          = ADC_DataAlign_Right; // Canh chinh Du lieu: Gia tri RAW 12-bit duoc luu o ben phai (LSB) cua thanh ghi 16-bit.
+    adc.ADC_NbrOfChannel       = 1; // So luong Kenh: Dat la 1 vi ta chi doc kenh 0 (PA0).
+
+    ADC_Init(ADC1, &adc); // Khoi tao ADC1 voi cac tham so da cau hinh.
 
     ADC_Cmd(ADC1, ENABLE);
 
-    // Calibrate
-    ADC_ResetCalibration(ADC1);
-    while(ADC_GetResetCalibrationStatus(ADC1));
-    ADC_StartCalibration(ADC1);
-    while(ADC_GetCalibrationStatus(ADC1));
+    // Hieu chinh
+    ADC_ResetCalibration(ADC1); // Reset lai gia tri hieu chinh cu.
+    while(ADC_GetResetCalibrationStatus(ADC1)); // Cho doi qua trinh Reset hieu chinh hoan tat.
+    ADC_StartCalibration(ADC1); // Bat dau qua trinh hieu chinh tu dong.
+    while(ADC_GetCalibrationStatus(ADC1)); // Cho doi qua trinh hieu chinh moi hoan tat (dam bao do chinh xac).
 }
 
 static uint16_t ADC1_Read_CH0(void){
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_239Cycles5);
-    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-    while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET);
+    // Cau hinh kenh ADC (ADC_Channel_0) va thoi gian giu mau (Sample Time).
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_0, 1, ADC_SampleTime_239Cycles5); 
+
+    // Ra lenh cho ADC bat dau chuyen doi (do dien ap) bang phan mem.
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE); 
+
+    // Ky thuat Polling: CPU dung lai o day va LIEN TUC kiem tra 
+    // cho den khi co EOC (End Of Conversion - Hoan tat do) duoc bat len.
+    while(ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC) == RESET); 
+
+    // Doc gia tri RAW (0-4095) tu thanh ghi cua ADC.
+    // Lenh nay tu dong xoa co EOC.
     return ADC_GetConversionValue(ADC1);
 }
 
